@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Hello go</title>
+  </head>
+  <body>
+    <h1>Hello Go Logs</h1>
+    <script>
+      async function getLogs() {
+        const response = await fetch("/logs");
+        const json = await response.json();
+        return json;
+      }
+
+      getLogs().then(data => {
+        const pre = document.createElement("pre");
+        pre.style.padding = "8px";
+        pre.style.background = "ghostwhite";
+        pre.innerHTML = JSON.stringify(data, null, 2);
+        document.body.append(pre);
+      });
+    </script>
+  </body>
+</html>
