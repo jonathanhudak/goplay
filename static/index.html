@@ -5,20 +5,77 @@
   </head>
   <body>
     <h1>Hello Go Logs</h1>
+    <form id="new-log-form">
+      <label for="entry"> Log entry</label><br />
+      <textarea id="entry" name="entry" rows="5" cols="33"></textarea>
+
+      <button type="submit">Add log entry</button>
+    </form>
+
+    <pre
+      style="background: ghostwhite; padding: 16px;"
+      id="logs-list-data"
+    ></pre>
+    <ul id="logs-list"></ul>
     <script>
-      async function getLogs() {
-        const response = await fetch("/logs");
-        const json = await response.json();
-        return json;
+      const form = document.getElementById("new-log-form");
+      const entry = document.getElementById("entry");
+      const logsListData = document.getElementById("logs-list-data");
+      const logsList = document.getElementById("logs-list");
+      async function apiRequest(url, { data = {}, method = "POST" } = {}) {
+        // Default options are marked with *
+        const response = await fetch(url, {
+          method,
+          cache: "no-cache", // *default, no-cache, reload, force-cache, only-if-cached
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(data) // body data type must match "Content-Type" header
+        }).catch(console.error);
+        return await response.json(); // parses JSON response into native JavaScript objects
       }
 
-      getLogs().then(data => {
-        const pre = document.createElement("pre");
-        pre.style.padding = "8px";
-        pre.style.background = "ghostwhite";
-        pre.innerHTML = JSON.stringify(data, null, 2);
-        document.body.append(pre);
+      function updateList() {
+        apiRequest("/logs").then(logs => {
+          // logsListData.innerHTML = JSON.stringify(logs, null, 2);
+          logsList.innerHTML = "";
+          logs.forEach(log => {
+            const li = document.createElement("li");
+            const a = document.createElement("a");
+            a.href = `/logs/${log.id}`;
+            a.innerText = log.entry;
+            li.appendChild(a);
+            const button = document.createElement("button");
+            button.innerText = `delete`;
+            button.setAttribute("data-delete-log", log.id);
+            li.appendChild(button);
+            logsList.appendChild(li);
+          });
+        });
+      }
+
+      logsList.addEventListener("click", e => {
+        const deleteLogId = e.target.getAttribute("data-delete-log");
+        if (deleteLogId) {
+          apiRequest(`/logs/${deleteLogId}`, { method: "DELETE" }).then(res => {
+            updateList();
+          });
+        }
       });
+
+      form.addEventListener("submit", function(e) {
+        e.preventDefault();
+        const data = [...new FormData(e.target)].reduce((o, [k, v]) => {
+          o[k] = v;
+          return o;
+        }, {});
+        apiRequest("/logs/create", { data }).then(res => {
+          entry.value = "";
+          updateList();
+        });
+      });
+
+      updateList();
     </script>
   </body>
 </html>
