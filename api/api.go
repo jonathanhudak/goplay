@@ -42,6 +42,30 @@ func CreateLog(w http.ResponseWriter, r *http.Request) {
 	w.Write(resultJSON)
 }
 
+// UpdateLog updates a log
+func UpdateLog(w http.ResponseWriter, r *http.Request) {
+	var logEntry Log
+	vars := mux.Vars(r)
+	objID, _ := primitive.ObjectIDFromHex(vars["_id"])
+	filter := bson.D{{"_id", objID}}
+	err := json.NewDecoder(r.Body).Decode(&logEntry)
+	if err != nil {
+		log.Fatal("Invalid params", err)
+	}
+
+	update := bson.D{
+		{"$set", logEntry},
+	}
+
+	updateResult, err := logs.UpdateOne(context.TODO(), filter, update)
+	if err != nil {
+		log.Fatal(err)
+	}
+	resultJSON, err := json.Marshal(updateResult)
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(resultJSON)
+}
+
 // GetLog retrieves a log by using the route param
 func GetLog(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
@@ -60,10 +84,9 @@ func GetLog(w http.ResponseWriter, r *http.Request) {
 	w.Write(resultJSON)
 }
 
-// DelteLog removes log by _id
+// DeleteLog removes log by id
 func DeleteLog(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	fmt.Printf("DeleteLog %s\n", vars["_id"])
 	objID, _ := primitive.ObjectIDFromHex(vars["_id"])
 	filter := bson.D{{"_id", objID}}
 	deleteResult, err := logs.DeleteOne(context.TODO(), filter)

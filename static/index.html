@@ -43,12 +43,38 @@
             const li = document.createElement("li");
             const a = document.createElement("a");
             a.href = `/logs/${log.id}`;
-            a.innerText = log.entry;
+            a.innerText = "View log";
             li.appendChild(a);
-            const button = document.createElement("button");
-            button.innerText = `delete`;
-            button.setAttribute("data-delete-log", log.id);
-            li.appendChild(button);
+
+            const p = document.createElement("p");
+            p.innerText = log.entry;
+            p.setAttribute("contenteditable", true);
+            p.addEventListener("blur", e => {
+              const newValue = e.target.innerHTML;
+              if (newValue !== log.entry) {
+                const saveButton = document.createElement("button");
+                saveButton.innerText = `save changes`;
+                saveButton.addEventListener("click", e => {
+                  e.preventDefault();
+
+                  apiRequest(`/logs/${log.id}`, {
+                    method: "PUT",
+                    data: {
+                      entry: newValue
+                    }
+                  }).then(res => {
+                    updateList();
+                  });
+                });
+                li.appendChild(saveButton);
+              }
+            });
+            li.appendChild(p);
+
+            const deleteButton = document.createElement("button");
+            deleteButton.innerText = `delete`;
+            deleteButton.setAttribute("data-delete-log", log.id);
+            li.appendChild(deleteButton);
             logsList.appendChild(li);
           });
         });

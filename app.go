@@ -16,6 +16,7 @@ func main() {
 	r.HandleFunc("/logs/create", api.CreateLog).Methods("POST")
 	r.HandleFunc("/logs", api.GetLogs).Methods("POST")
 	r.HandleFunc("/logs/{_id}", api.GetLog).Methods("GET")
+	r.HandleFunc("/logs/{_id}", api.UpdateLog).Methods("PUT")
 	r.HandleFunc("/logs/{_id}", api.DeleteLog).Methods("DELETE")
 	r.PathPrefix("/").Handler(spa.CreateSpa("static", "index.html"))
 
