@@ -11,15 +11,8 @@ import (
 	"github.com/gorilla/mux"
 )
 
-func articlesHandler(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	w.WriteHeader(http.StatusOK)
-	fmt.Fprintf(w, "Article: %v\n", vars["key"])
-}
-
 func main() {
 	r := mux.NewRouter()
-	r.HandleFunc("/articles/{key}", articlesHandler)
 	r.HandleFunc("/logs/create", api.CreateLog).Methods("POST")
 	r.HandleFunc("/logs", api.GetLogs).Methods("POST")
 	r.HandleFunc("/logs/{_id}", api.GetLog).Methods("GET")
