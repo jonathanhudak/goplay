@@ -9,19 +9,29 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/urfave/negroni"
 )
 
 func main() {
 	r := mux.NewRouter()
 
+	apiRouter := mux.NewRouter().PathPrefix("/api").Subrouter().StrictSlash(true)
+
+	apiRouter.HandleFunc("/profile", api.ProfileHandler).Methods("GET")
+	apiRouter.HandleFunc("/logs/create", api.CreateLogHandler).Methods("POST")
+	apiRouter.HandleFunc("/logs", api.GetLogsHandler).Methods("POST")
+	apiRouter.HandleFunc("/logs/{_id}", api.GetLogHandler).Methods("GET")
+	apiRouter.HandleFunc("/logs/{_id}", api.UpdateLogHandler).Methods("PUT")
+	apiRouter.HandleFunc("/logs/{_id}", api.DeleteLogHandler).Methods("DELETE")
+
 	r.HandleFunc("/register", api.RegisterHandler).Methods("POST")
 	r.HandleFunc("/login", api.LoginHandler).Methods("POST")
-	r.HandleFunc("/profile", api.ProfileHandler).Methods("GET")
-	r.HandleFunc("/logs/create", api.CreateLogHandler).Methods("POST")
-	r.HandleFunc("/logs", api.GetLogsHandler).Methods("POST")
-	r.HandleFunc("/logs/{_id}", api.GetLogHandler).Methods("GET")
-	r.HandleFunc("/logs/{_id}", api.UpdateLogHandler).Methods("PUT")
-	r.HandleFunc("/logs/{_id}", api.DeleteLogHandler).Methods("DELETE")
+
+	// Middleware: https://github.com/urfave/negroni
+	n := negroni.New(negroni.Wrap(apiRouter))
+	n.Use(negroni.HandlerFunc(api.AuthMiddlewareHandler))
+
+	r.PathPrefix("/api").Handler(n)
 	r.PathPrefix("/").Handler(spa.CreateSpa("static", "index.html"))
 
 	srv := &http.Server{

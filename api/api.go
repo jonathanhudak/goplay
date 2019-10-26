@@ -278,3 +278,10 @@ func ProfileHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 }
+
+func AuthMiddlewareHandler(rw http.ResponseWriter, r *http.Request, next http.HandlerFunc) {
+	// do some stuff before
+	fmt.Println("TODO: validate JWT token")
+	next(rw, r)
+	// do some stuff after
+}

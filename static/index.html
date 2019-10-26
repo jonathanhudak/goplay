@@ -60,13 +60,13 @@
       }
 
       function updateList() {
-        apiRequest("/logs").then(logs => {
+        apiRequest("/api/logs").then(logs => {
           // logsListData.innerHTML = JSON.stringify(logs, null, 2);
           logsList.innerHTML = "";
           logs.forEach(log => {
             const li = document.createElement("li");
             const a = document.createElement("a");
-            a.href = `/logs/${log.id}`;
+            a.href = `/api/logs/${log.id}`;
             a.innerText = "View log";
             li.appendChild(a);
 
@@ -81,7 +81,7 @@
                 saveButton.addEventListener("click", e => {
                   e.preventDefault();
 
-                  apiRequest(`/logs/${log.id}`, {
+                  apiRequest(`/api/logs/${log.id}`, {
                     method: "PUT",
                     data: {
                       entry: newValue
@@ -107,9 +107,11 @@
       logsList.addEventListener("click", e => {
         const deleteLogId = e.target.getAttribute("data-delete-log");
         if (deleteLogId) {
-          apiRequest(`/logs/${deleteLogId}`, { method: "DELETE" }).then(res => {
-            updateList();
-          });
+          apiRequest(`/api/logs/${deleteLogId}`, { method: "DELETE" }).then(
+            res => {
+              updateList();
+            }
+          );
         }
       });
 
@@ -123,7 +125,7 @@
       form.addEventListener("submit", function(e) {
         e.preventDefault();
         const data = getSubmittedFormData(e);
-        apiRequest("/logs/create", { data }).then(res => {
+        apiRequest("/api/logs/create", { data }).then(res => {
           entry.value = "";
           updateList();
         });
@@ -144,7 +146,7 @@
       });
 
       if (token) {
-        apiRequest("/profile", { method: "GET" }).then(res => {
+        apiRequest("/api/profile", { method: "GET" }).then(res => {
           loginForm.style.display = "none";
           account.innerText = `Hello ${res.username}!`;
           const logoutButton = document.createElement("button");
