@@ -27,3 +27,9 @@
 
 - https://golang.org/pkg/net/http
 - https://www.alexedwards.net/blog/a-recap-of-request-handling
+
+### Integ tests
+
+- https://www.npmjs.com/package/cucumber-puppeteer
+- https://github.com/GoogleChrome/puppeteer
+- https://github.com/cucumber/cucumber-js
