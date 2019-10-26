@@ -4,19 +4,39 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"golog/model"
+	"io/ioutil"
 	"log"
 	"net/http"
 
+	"github.com/dgrijalva/jwt-go"
 	"github.com/gorilla/mux"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.mongodb.org/mongo-driver/mongo/readpref"
+	"golang.org/x/crypto/bcrypt"
 )
 
 var db *mongo.Database
 var logs *mongo.Collection
+var users *mongo.Collection
+
+func init() {
+	fmt.Println("api.go init")
+	client, _ := mongo.Connect(context.TODO(), options.Client().ApplyURI("mongodb://localhost:27017"))
+	err := client.Ping(context.TODO(), readpref.Primary())
+	if err != nil {
+		log.Fatal("Couldn't connect to the database", err)
+	} else {
+		log.Println("Connected!")
+	}
+
+	db = client.Database("jonapi")
+	logs = db.Collection("logs")
+	users = db.Collection("users")
+}
 
 // Log is the type for collection item
 type Log struct {
@@ -24,8 +44,8 @@ type Log struct {
 	Entry string              `json:"entry"`
 }
 
-// CreateLog makes a log
-func CreateLog(w http.ResponseWriter, r *http.Request) {
+// CreateLogHandler makes a log
+func CreateLogHandler(w http.ResponseWriter, r *http.Request) {
 	var logEntry Log
 	err := json.NewDecoder(r.Body).Decode(&logEntry)
 	if err != nil {
@@ -42,8 +62,8 @@ func CreateLog(w http.ResponseWriter, r *http.Request) {
 	w.Write(resultJSON)
 }
 
-// UpdateLog updates a log
-func UpdateLog(w http.ResponseWriter, r *http.Request) {
+// UpdateLogHandler updates a log
+func UpdateLogHandler(w http.ResponseWriter, r *http.Request) {
 	var logEntry Log
 	vars := mux.Vars(r)
 	objID, _ := primitive.ObjectIDFromHex(vars["_id"])
@@ -66,8 +86,8 @@ func UpdateLog(w http.ResponseWriter, r *http.Request) {
 	w.Write(resultJSON)
 }
 
-// GetLog retrieves a log by using the route param
-func GetLog(w http.ResponseWriter, r *http.Request) {
+// GetLogHandler retrieves a log by using the route param
+func GetLogHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	vars := mux.Vars(r)
 	var logEntry Log
@@ -84,8 +104,8 @@ func GetLog(w http.ResponseWriter, r *http.Request) {
 	w.Write(resultJSON)
 }
 
-// DeleteLog removes log by id
-func DeleteLog(w http.ResponseWriter, r *http.Request) {
+// DeleteLogHandler removes log by id
+func DeleteLogHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	objID, _ := primitive.ObjectIDFromHex(vars["_id"])
 	filter := bson.D{{"_id", objID}}
@@ -99,8 +119,8 @@ func DeleteLog(w http.ResponseWriter, r *http.Request) {
 	w.Write(resultJSON)
 }
 
-// GetLogs retrieves logs from the database as json
-func GetLogs(w http.ResponseWriter, r *http.Request) {
+// GetLogsHandler retrieves logs from the database as json
+func GetLogsHandler(w http.ResponseWriter, r *http.Request) {
 	var results []*Log
 	findOptions := options.Find()
 	findOptions.SetLimit(10)
@@ -134,16 +154,127 @@ func GetLogs(w http.ResponseWriter, r *http.Request) {
 	w.Write(logsJSON)
 }
 
-func init() {
-	fmt.Println("api.go init")
-	client, _ := mongo.Connect(context.TODO(), options.Client().ApplyURI("mongodb://localhost:27017"))
-	err := client.Ping(context.TODO(), readpref.Primary())
+// Auth
+func RegisterHandler(w http.ResponseWriter, r *http.Request) {
+
+	w.Header().Set("Content-Type", "application/json")
+	var user model.User
+	body, _ := ioutil.ReadAll(r.Body)
+	err := json.Unmarshal(body, &user)
+	var res model.ResponseResult
 	if err != nil {
-		log.Fatal("Couldn't connect to the database", err)
-	} else {
-		log.Println("Connected!")
+		res.Error = err.Error()
+		json.NewEncoder(w).Encode(res)
+		return
 	}
 
-	db = client.Database("jonapi")
-	logs = db.Collection("logs")
+	var result model.User
+	err = users.FindOne(context.TODO(), bson.D{{"username", user.Username}}).Decode(&result)
+
+	if err != nil {
+		if err.Error() == "mongo: no documents in result" {
+			hash, err := bcrypt.GenerateFromPassword([]byte(user.Password), 5)
+
+			if err != nil {
+				res.Error = "Error While Hashing Password, Try Again"
+				json.NewEncoder(w).Encode(res)
+				return
+			}
+			user.Password = string(hash)
+
+			_, err = users.InsertOne(context.TODO(), user)
+			if err != nil {
+				res.Error = "Error While Creating User, Try Again"
+				json.NewEncoder(w).Encode(res)
+				return
+			}
+			res.Result = "Registration Successful"
+			json.NewEncoder(w).Encode(res)
+			return
+		}
+
+		res.Error = err.Error()
+		json.NewEncoder(w).Encode(res)
+		return
+	}
+
+	res.Result = "Username already Exists!!"
+	json.NewEncoder(w).Encode(res)
+	return
+}
+
+func LoginHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	var user model.User
+	body, _ := ioutil.ReadAll(r.Body)
+	err := json.Unmarshal(body, &user)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	var result model.User
+	var res model.ResponseResult
+
+	err = users.FindOne(context.TODO(), bson.D{{"username", user.Username}}).Decode(&result)
+
+	if err != nil {
+		res.Error = "Invalid username"
+		json.NewEncoder(w).Encode(res)
+		return
+	}
+
+	err = bcrypt.CompareHashAndPassword([]byte(result.Password), []byte(user.Password))
+
+	if err != nil {
+		res.Error = "Invalid password"
+		json.NewEncoder(w).Encode(res)
+		return
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"username":  result.Username,
+		"firstname": result.FirstName,
+		"lastname":  result.LastName,
+	})
+
+	tokenString, err := token.SignedString([]byte("secret"))
+
+	if err != nil {
+		res.Error = "Error while generating token,Try again"
+		json.NewEncoder(w).Encode(res)
+		return
+	}
+
+	result.Token = tokenString
+	result.Password = ""
+
+	json.NewEncoder(w).Encode(result)
+
+}
+
+func ProfileHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	tokenString := r.Header.Get("Authorization")
+	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+		// Don't forget to validate the alg is what you expect:
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("Unexpected signing method")
+		}
+		return []byte("secret"), nil
+	})
+	var result model.User
+	var res model.ResponseResult
+	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
+		result.Username = claims["username"].(string)
+		result.FirstName = claims["firstname"].(string)
+		result.LastName = claims["lastname"].(string)
+
+		json.NewEncoder(w).Encode(result)
+		return
+	} else {
+		res.Error = err.Error()
+		json.NewEncoder(w).Encode(res)
+		return
+	}
+
 }

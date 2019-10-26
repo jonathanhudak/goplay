@@ -2,6 +2,14 @@
 
 
 [[projects]]
+  digest = "1:76dc72490af7174349349838f2fe118996381b31ea83243812a97e5a0fd5ed55"
+  name = "github.com/dgrijalva/jwt-go"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "06ea1031745cb8b3dab3f6a236daf2b0aa468b7e"
+  version = "v3.2.0"
+
+[[projects]]
   digest = "1:586ea76dbd0374d6fb649a91d70d652b7fe0ccffb8910a77468e7702e7901f3d"
   name = "github.com/go-stack/stack"
   packages = ["."]
@@ -24,6 +32,14 @@
   pruneopts = "UT"
   revision = "00bdffe0f3c77e27d2cf6f5c70232a2d3e4d9c15"
   version = "v1.7.3"
+
+[[projects]]
+  digest = "1:d688f4ad71b5dfad95c2d74cb0feac09f8f3c32ae5cecc078230dbdeece39e53"
+  name = "github.com/urfave/negroni"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "c6a59be0ce122566695fbd5e48a77f8f10c8a63a"
+  version = "v1.0.0"
 
 [[projects]]
   branch = "master"
@@ -80,9 +96,13 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:f92f6956e4059f6a3efc14924d2dd58ba90da25cc57fe07ae3779ef2f5e0c5f2"
+  digest = "1:d71baed52a5a67407a72b63949aa042ea68bb32fdab03e07704a4f1dc309d193"
   name = "golang.org/x/crypto"
-  packages = ["pbkdf2"]
+  packages = [
+    "bcrypt",
+    "blowfish",
+    "pbkdf2",
+  ]
   pruneopts = "UT"
   revision = "87dc89f01550277dc22b74ffcf4cd89fa2f40f4c"
 
@@ -113,11 +133,15 @@
   analyzer-name = "dep"
   analyzer-version = 1
   input-imports = [
+    "github.com/dgrijalva/jwt-go",
     "github.com/gorilla/mux",
+    "github.com/urfave/negroni",
     "go.mongodb.org/mongo-driver/bson",
+    "go.mongodb.org/mongo-driver/bson/primitive",
     "go.mongodb.org/mongo-driver/mongo",
     "go.mongodb.org/mongo-driver/mongo/options",
     "go.mongodb.org/mongo-driver/mongo/readpref",
+    "golang.org/x/crypto/bcrypt",
   ]
   solver-name = "gps-cdcl"
   solver-version = 1

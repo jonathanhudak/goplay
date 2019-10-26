@@ -13,6 +13,12 @@
 - https://golang.github.io/dep/docs/daily-dep.html
 - https://github.com/tfogo/mongodb-go-tutorial
 
+### Auth
+
+- https://medium.com/@theShiva5/creating-simple-login-api-using-go-and-mongodb-9b3c1c775d2f
+- https://blog.usejournal.com/authentication-in-golang-c0677bcce1a8
+- https://github.com/urfave/negroni
+
 ### Mongo
 
 - https://github.com/mongodb/mongo-go-driver
