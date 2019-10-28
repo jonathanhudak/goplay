@@ -39,15 +39,13 @@ func init() {
 	users = db.Collection("users")
 }
 
-// Log is the type for collection item
-type Log struct {
-	ID    *primitive.ObjectID `json:"id" bson:"_id,omitempty"`
-	Entry string              `json:"entry"`
-}
-
 // CreateLogHandler makes a log
 func CreateLogHandler(w http.ResponseWriter, r *http.Request) {
-	var logEntry Log
+	var logEntry model.Log
+	owner, _, _ := getUserFromAuthToken(r)
+
+	logEntry.UserID = owner.OID
+
 	err := json.NewDecoder(r.Body).Decode(&logEntry)
 	if err != nil {
 		log.Fatal("Invalid params", err)
@@ -65,7 +63,7 @@ func CreateLogHandler(w http.ResponseWriter, r *http.Request) {
 
 // UpdateLogHandler updates a log
 func UpdateLogHandler(w http.ResponseWriter, r *http.Request) {
-	var logEntry Log
+	var logEntry model.Log
 	vars := mux.Vars(r)
 	objID, _ := primitive.ObjectIDFromHex(vars["_id"])
 	filter := bson.D{{"_id", objID}}
@@ -91,7 +89,7 @@ func UpdateLogHandler(w http.ResponseWriter, r *http.Request) {
 func GetLogHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	vars := mux.Vars(r)
-	var logEntry Log
+	var logEntry model.Log
 	fmt.Printf("GetLog %s\n", vars["_id"])
 	objID, _ := primitive.ObjectIDFromHex(vars["_id"])
 	filter := bson.D{{"_id", objID}} // vet complains about this. Not sure composite literal uses unkeyed fields
@@ -122,18 +120,19 @@ func DeleteLogHandler(w http.ResponseWriter, r *http.Request) {
 
 // GetLogsHandler retrieves logs from the database as json
 func GetLogsHandler(w http.ResponseWriter, r *http.Request) {
-	var results []*Log
+	owner, _, _ := getUserFromAuthToken(r)
+	var results []*model.Log
 	findOptions := options.Find()
 	findOptions.SetLimit(10)
 
-	cur, err := logs.Find(context.TODO(), bson.D{{}}, findOptions)
+	cur, err := logs.Find(context.TODO(), bson.D{{"user_id", owner.OID}}, findOptions)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	// Iterate through the cursor
 	for cur.Next(context.TODO()) {
-		var elem Log
+		var elem model.Log
 		err := cur.Decode(&elem)
 		if err != nil {
 			log.Fatal(err)
@@ -250,28 +249,40 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 	result.Password = ""
 
 	json.NewEncoder(w).Encode(result)
-
 }
 
-func ProfileHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
+func getUserFromAuthToken(r *http.Request) (model.User, bool, error) {
 	tokenString := strings.Split(r.Header.Get("Authorization"), "Bearer ")[1]
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 		return []byte("jonapi"), nil
 	})
-	var result model.User
-	var res model.ResponseResult
-	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
-		result.Username = claims["username"].(string)
-		result.FirstName = claims["firstname"].(string)
-		result.LastName = claims["lastname"].(string)
+	var user model.User
+	var ok bool
+	if claims, _ := token.Claims.(jwt.MapClaims); token.Valid {
+		user.Username = claims["username"].(string)
+		user.FirstName = claims["firstname"].(string)
+		user.LastName = claims["lastname"].(string)
+		ok = true
 
-		json.NewEncoder(w).Encode(result)
-		return
+		filter := bson.D{{"username", user.Username}}
+		err := users.FindOne(context.TODO(), filter).Decode(&user)
+		fmt.Println("user", user)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+	return user, ok, err
+}
+
+// ProfileHandler return the user's profile encoded in the jwt token claims
+func ProfileHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	user, ok, err := getUserFromAuthToken(r)
+	var res model.ResponseResult
+	if ok {
+		json.NewEncoder(w).Encode(user)
 	} else {
 		res.Error = err.Error()
 		json.NewEncoder(w).Encode(res)
-		return
 	}
-
 }
