@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"strings"
 
 	"github.com/dgrijalva/jwt-go"
 	"github.com/gorilla/mux"
@@ -237,7 +238,7 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 		"lastname":  result.LastName,
 	})
 
-	tokenString, err := token.SignedString([]byte("secret"))
+	tokenString, err := token.SignedString([]byte("jonapi"))
 
 	if err != nil {
 		res.Error = "Error while generating token,Try again"
@@ -254,13 +255,9 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 
 func ProfileHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	tokenString := r.Header.Get("Authorization")
+	tokenString := strings.Split(r.Header.Get("Authorization"), "Bearer ")[1]
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-		// Don't forget to validate the alg is what you expect:
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("Unexpected signing method")
-		}
-		return []byte("secret"), nil
+		return []byte("jonapi"), nil
 	})
 	var result model.User
 	var res model.ResponseResult
@@ -277,11 +274,4 @@ func ProfileHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-}
-
-func AuthMiddlewareHandler(rw http.ResponseWriter, r *http.Request, next http.HandlerFunc) {
-	// do some stuff before
-	fmt.Println("TODO: validate JWT token")
-	next(rw, r)
-	// do some stuff after
 }

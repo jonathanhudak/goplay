@@ -25,20 +25,18 @@
 
     <div id="account"></div>
 
-    <hr style="margin: 24px 0;" />
+    <div id="logged-in" style="display: none;">
+      <hr style="margin: 24px 0;" />
 
-    <form id="new-log-form">
-      <label for="entry"> Log entry</label><br />
-      <textarea id="entry" name="entry" rows="5" cols="33"></textarea>
+      <form id="new-log-form">
+        <label for="entry"> Log entry</label><br />
+        <textarea id="entry" name="entry" rows="5" cols="33"></textarea>
 
-      <button type="submit">Add log entry</button>
-    </form>
+        <button type="submit">Add log entry</button>
+      </form>
 
-    <pre
-      style="background: ghostwhite; padding: 16px;"
-      id="logs-list-data"
-    ></pre>
-    <ul id="logs-list"></ul>
+      <ul id="logs-list"></ul>
+    </div>
     <script>
       const token = sessionStorage.getItem("token");
       const form = document.getElementById("new-log-form");
@@ -47,13 +45,17 @@
       const logsList = document.getElementById("logs-list");
       async function apiRequest(url, { data = {}, method = "POST" } = {}) {
         const body = method !== "GET" ? JSON.stringify(data) : undefined; // body data type must match "Content-Type" header
+        const headers = {
+          "Content-Type": "application/json"
+        };
+        if (token) {
+          headers.Authorization = `Bearer ${token}`;
+        }
+
         // Default options are marked with *
         const response = await fetch(url, {
           method,
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: token || ""
-          },
+          headers,
           body
         }).catch(console.error);
         return await response.json(); // parses JSON response into native JavaScript objects
@@ -63,6 +65,7 @@
         apiRequest("/api/logs").then(logs => {
           // logsListData.innerHTML = JSON.stringify(logs, null, 2);
           logsList.innerHTML = "";
+          if (!logs) return;
           logs.forEach(log => {
             const li = document.createElement("li");
             const a = document.createElement("a");
@@ -146,8 +149,11 @@
       });
 
       if (token) {
+        const loggedIn = document.getElementById("logged-in");
         apiRequest("/api/profile", { method: "GET" }).then(res => {
           loginForm.style.display = "none";
+          loggedIn.style.display = "block";
+
           account.innerText = `Hello ${res.username}!`;
           const logoutButton = document.createElement("button");
           logoutButton.innerText = "logout";

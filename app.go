@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"time"
 
+	jwtmiddleware "github.com/auth0/go-jwt-middleware"
+	"github.com/dgrijalva/jwt-go"
 	"github.com/gorilla/mux"
 	"github.com/urfave/negroni"
 )
@@ -28,8 +30,21 @@ func main() {
 	r.HandleFunc("/login", api.LoginHandler).Methods("POST")
 
 	// Middleware: https://github.com/urfave/negroni
-	n := negroni.New(negroni.Wrap(apiRouter))
-	n.Use(negroni.HandlerFunc(api.AuthMiddlewareHandler))
+
+	jwtMiddleware := jwtmiddleware.New(jwtmiddleware.Options{
+		Debug: true,
+		ValidationKeyGetter: func(token *jwt.Token) (interface{}, error) {
+			return []byte("jonapi"), nil
+		},
+		// When set, the middleware verifies that tokens are signed with the specific signing algorithm
+		// If the signing method is not constant the ValidationKeyGetter callback can be used to implement additional checks
+		// Important to avoid security issues described here: https://auth0.com/blog/2015/03/31/critical-vulnerabilities-in-json-web-token-libraries/
+		SigningMethod: jwt.SigningMethodHS256,
+	})
+
+	n := negroni.New(
+		negroni.HandlerFunc(jwtMiddleware.HandlerWithNext),
+		negroni.Wrap(apiRouter))
 
 	r.PathPrefix("/api").Handler(n)
 	r.PathPrefix("/").Handler(spa.CreateSpa("static", "index.html"))

@@ -2,6 +2,14 @@
 
 
 [[projects]]
+  branch = "master"
+  digest = "1:6726437ac0e60c0904e7eba21dfcc7c47f260e194027820229d0c98e328e1269"
+  name = "github.com/auth0/go-jwt-middleware"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "36081240882bbf356af6efb152969e4b0bcf4456"
+
+[[projects]]
   digest = "1:76dc72490af7174349349838f2fe118996381b31ea83243812a97e5a0fd5ed55"
   name = "github.com/dgrijalva/jwt-go"
   packages = ["."]
@@ -133,6 +141,7 @@
   analyzer-name = "dep"
   analyzer-version = 1
   input-imports = [
+    "github.com/auth0/go-jwt-middleware",
     "github.com/dgrijalva/jwt-go",
     "github.com/gorilla/mux",
     "github.com/urfave/negroni",
