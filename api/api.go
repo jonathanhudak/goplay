@@ -63,13 +63,30 @@ func CreateLogHandler(w http.ResponseWriter, r *http.Request) {
 
 // UpdateLogHandler updates a log
 func UpdateLogHandler(w http.ResponseWriter, r *http.Request) {
+	owner, _, _ := getUserFromAuthToken(r)
+	var currentLogEntry model.Log
 	var logEntry model.Log
 	vars := mux.Vars(r)
 	objID, _ := primitive.ObjectIDFromHex(vars["_id"])
 	filter := bson.D{{"_id", objID}}
+
+	// Make sure the log is owned by the same user
+	findErr := logs.FindOne(context.TODO(), filter).Decode(&currentLogEntry)
+	if findErr != nil {
+		log.Fatal("Log not found", findErr)
+	}
+
+	if currentLogEntry.UserID != owner.OID {
+		w.WriteHeader(http.StatusForbidden)
+		notFound, _ := json.Marshal("Computer says no")
+		w.Write(notFound)
+		return
+	}
+
 	err := json.NewDecoder(r.Body).Decode(&logEntry)
 	if err != nil {
 		log.Fatal("Invalid params", err)
+		return
 	}
 
 	update := bson.D{
