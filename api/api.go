@@ -39,7 +39,7 @@ func init() {
 	users = db.Collection("users")
 }
 
-// CreateLogHandler makes a log
+// CreateLogHandler creates a log owned by the requester
 func CreateLogHandler(w http.ResponseWriter, r *http.Request) {
 	var logEntry model.Log
 	owner, _, _ := getUserFromAuthToken(r)
@@ -61,25 +61,54 @@ func CreateLogHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write(resultJSON)
 }
 
-// UpdateLogHandler updates a log
-func UpdateLogHandler(w http.ResponseWriter, r *http.Request) {
+// DeleteLogHandler removes log by id if the requester is the owner
+func DeleteLogHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	objID, _ := primitive.ObjectIDFromHex(vars["_id"])
+	filter := bson.D{{"_id", objID}}
+
+	if ensureLogOwner(w, r, filter) == false {
+		return
+	}
+
+	deleteResult, err := logs.DeleteOne(context.TODO(), filter)
+	if err != nil {
+		log.Fatal(err)
+	}
+	resultJSON, _ := json.Marshal(deleteResult)
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(resultJSON)
+}
+
+func ensureLogOwner(w http.ResponseWriter, r *http.Request, filter bson.D) bool {
+	var logEntry model.Log
+
+	// Make sure the log is owned by the same user
 	owner, _, _ := getUserFromAuthToken(r)
-	var currentLogEntry model.Log
+	findErr := logs.FindOne(context.TODO(), filter).Decode(&logEntry)
+	if findErr != nil {
+		log.Fatal("Log not found", findErr)
+	}
+
+	if logEntry.UserID != owner.OID {
+		w.WriteHeader(http.StatusForbidden)
+		notFound, _ := json.Marshal("Computer says no")
+		w.Write(notFound)
+		return false
+	}
+	return true
+}
+
+// UpdateLogHandler updates a log if the requester is the owner
+func UpdateLogHandler(w http.ResponseWriter, r *http.Request) {
+
 	var logEntry model.Log
 	vars := mux.Vars(r)
 	objID, _ := primitive.ObjectIDFromHex(vars["_id"])
 	filter := bson.D{{"_id", objID}}
 
-	// Make sure the log is owned by the same user
-	findErr := logs.FindOne(context.TODO(), filter).Decode(&currentLogEntry)
-	if findErr != nil {
-		log.Fatal("Log not found", findErr)
-	}
-
-	if currentLogEntry.UserID != owner.OID {
-		w.WriteHeader(http.StatusForbidden)
-		notFound, _ := json.Marshal("Computer says no")
-		w.Write(notFound)
+	if ensureLogOwner(w, r, filter) == false {
 		return
 	}
 
@@ -105,11 +134,12 @@ func UpdateLogHandler(w http.ResponseWriter, r *http.Request) {
 // GetLogHandler retrieves a log by using the route param
 func GetLogHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
+	owner, _, _ := getUserFromAuthToken(r)
 	vars := mux.Vars(r)
 	var logEntry model.Log
 	fmt.Printf("GetLog %s\n", vars["_id"])
 	objID, _ := primitive.ObjectIDFromHex(vars["_id"])
-	filter := bson.D{{"_id", objID}} // vet complains about this. Not sure composite literal uses unkeyed fields
+	filter := bson.D{{"_id", objID}, {"user_id", owner.OID}} // vet complains about this. Not sure composite literal uses unkeyed fields
 	err := logs.FindOne(context.TODO(), filter).Decode(&logEntry)
 	if err != nil {
 		log.Fatal(err)
@@ -117,21 +147,6 @@ func GetLogHandler(w http.ResponseWriter, r *http.Request) {
 		w.Write(notFound)
 	}
 	resultJSON, err := json.Marshal(logEntry)
-	w.Write(resultJSON)
-}
-
-// DeleteLogHandler removes log by id
-func DeleteLogHandler(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	objID, _ := primitive.ObjectIDFromHex(vars["_id"])
-	filter := bson.D{{"_id", objID}}
-	deleteResult, err := logs.DeleteOne(context.TODO(), filter)
-	if err != nil {
-		log.Fatal(err)
-	}
-	resultJSON, _ := json.Marshal(deleteResult)
-
-	w.Header().Set("Content-Type", "application/json")
 	w.Write(resultJSON)
 }
 
