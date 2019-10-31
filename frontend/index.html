@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Hello go</title>
+  </head>
+  <body>
+    <h1>Hello Go Logs</h1>
+
+    <form id="login">
+      <div>
+        <label for="username">username</label>
+        <input id="username" name="username" autocomplete="golog-username" />
+      </div>
+      <div>
+        <label for="password">password</label>
+        <input
+          id="password"
+          name="password"
+          type="password"
+          autocomplete="golog-password"
+        />
+      </div>
+      <button type="submit">Login</button>
+    </form>
+
+    <div id="account"></div>
+
+    <div id="logged-in" style="display: none;">
+      <hr style="margin: 24px 0;" />
+
+      <form id="new-log-form">
+        <label for="entry"> Log entry</label><br />
+        <textarea id="entry" name="entry" rows="5" cols="33"></textarea>
+
+        <button type="submit">Add log entry</button>
+      </form>
+
+      <ul id="logs-list"></ul>
+    </div>
+    <script>
+      const token = sessionStorage.getItem("token");
+      const form = document.getElementById("new-log-form");
+      const entry = document.getElementById("entry");
+      const logsListData = document.getElementById("logs-list-data");
+      const logsList = document.getElementById("logs-list");
+      async function apiRequest(url, { data = {}, method = "POST" } = {}) {
+        const body = method !== "GET" ? JSON.stringify(data) : undefined; // body data type must match "Content-Type" header
+        const headers = {
+          "Content-Type": "application/json"
+        };
+        if (token) {
+          headers.Authorization = `Bearer ${token}`;
+        }
+
+        // Default options are marked with *
+        const response = await fetch(`http://localhost:5000${url}`, {
+          method,
+          headers,
+          body
+        }).catch(console.error);
+        return await response.json(); // parses JSON response into native JavaScript objects
+      }
+
+      function updateList() {
+        apiRequest("/api/logs").then(logs => {
+          // logsListData.innerHTML = JSON.stringify(logs, null, 2);
+          logsList.innerHTML = "";
+          if (!logs) return;
+          logs.forEach(log => {
+            const li = document.createElement("li");
+            const a = document.createElement("a");
+            a.href = `/api/logs/${log.id}`;
+            a.innerText = "View log";
+            li.appendChild(a);
+
+            const p = document.createElement("p");
+            p.innerText = log.entry;
+            p.setAttribute("contenteditable", true);
+            p.addEventListener("blur", e => {
+              const newValue = e.target.innerHTML;
+              if (newValue !== log.entry) {
+                const saveButton = document.createElement("button");
+                saveButton.innerText = `save changes`;
+                saveButton.addEventListener("click", e => {
+                  e.preventDefault();
+
+                  apiRequest(`/api/logs/${log.id}`, {
+                    method: "PUT",
+                    data: {
+                      entry: newValue
+                    }
+                  }).then(res => {
+                    updateList();
+                  });
+                });
+                li.appendChild(saveButton);
+              }
+            });
+            li.appendChild(p);
+
+            const deleteButton = document.createElement("button");
+            deleteButton.innerText = `delete`;
+            deleteButton.setAttribute("data-delete-log", log.id);
+            li.appendChild(deleteButton);
+            logsList.appendChild(li);
+          });
+        });
+      }
+
+      logsList.addEventListener("click", e => {
+        const deleteLogId = e.target.getAttribute("data-delete-log");
+        if (deleteLogId) {
+          apiRequest(`/api/logs/${deleteLogId}`, { method: "DELETE" }).then(
+            res => {
+              updateList();
+            }
+          );
+        }
+      });
+
+      function getSubmittedFormData(e) {
+        return [...new FormData(e.target)].reduce((o, [k, v]) => {
+          o[k] = v;
+          return o;
+        }, {});
+      }
+
+      form.addEventListener("submit", function(e) {
+        e.preventDefault();
+        const data = getSubmittedFormData(e);
+        apiRequest("/api/logs/create", { data }).then(res => {
+          entry.value = "";
+          updateList();
+        });
+      });
+
+      // Auth
+      const loginForm = document.getElementById("login");
+      const account = document.getElementById("account");
+
+      loginForm.addEventListener("submit", function(e) {
+        e.preventDefault();
+        const data = getSubmittedFormData(e);
+
+        apiRequest("/login", { data }).then(res => {
+          if (res.token) {
+            sessionStorage.setItem("token", res.token);
+            window.location.reload();
+          }
+        });
+      });
+
+      if (token) {
+        const loggedIn = document.getElementById("logged-in");
+        apiRequest("/api/profile", { method: "GET" }).then(res => {
+          loginForm.style.display = "none";
+          loggedIn.style.display = "block";
+
+          account.innerText = `Hello ${res.username}!`;
+          const logoutButton = document.createElement("button");
+          logoutButton.innerText = "logout";
+          logoutButton.addEventListener("click", () => {
+            sessionStorage.removeItem("token");
+            window.location.reload();
+          });
+          account.appendChild(logoutButton);
+        });
+      }
+
+      if (token) updateList();
+    </script>
+  </body>
+</html>

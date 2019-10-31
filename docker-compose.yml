@@ -1,0 +1,26 @@
+version: "3"
+services:
+  api:
+    build: .
+    container_name: "api"
+    ports:
+      - "5000:5000"
+    # depends_on:
+    #   - "mongo"
+    environment:
+      - SERVER_PORT=5000
+      # - MONGO_PATH=mongo
+  web:
+    container_name: "web"
+    image: "nginx:latest"
+    ports:
+      - "8080:80"
+    volumes:
+      - "./frontend:/usr/share/nginx/html"
+    depends_on:
+      - "api"
+  # mongo:
+  #   image: "mongo:latest"
+  #   container_name: "mongo"
+  #   ports:
+  #     - "27017"

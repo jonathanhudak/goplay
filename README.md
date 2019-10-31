@@ -37,3 +37,7 @@
 ### Graphql
 
 - https://gqlgen.com/getting-started/
+
+### Deployment
+
+- https://cloud.google.com/kubernetes-engine/docs/tutorials/hello-app

@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"os"
 	"strings"
 
 	"github.com/dgrijalva/jwt-go"
@@ -25,8 +26,19 @@ var logs *mongo.Collection
 var users *mongo.Collection
 
 func init() {
-	fmt.Println("api.go init")
-	client, _ := mongo.Connect(context.TODO(), options.Client().ApplyURI("mongodb://localhost:27017"))
+	dbPath := os.Getenv("MONGO_PATH")
+
+	if len(dbPath) == 0 {
+		dbPath = "localhost"
+	}
+
+	mongoURL := os.Getenv("MONGO_URL")
+
+	if len(mongoURL) == 0 {
+		mongoURL = "mongodb://" + dbPath + ":27017"
+	}
+
+	client, _ := mongo.Connect(context.TODO(), options.Client().ApplyURI(mongoURL))
 	err := client.Ping(context.TODO(), readpref.Primary())
 	if err != nil {
 		log.Fatal("Couldn't connect to the database", err)
@@ -55,7 +67,7 @@ func CreateLogHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println("Inserted a log document: ", insertResult.InsertedID)
+
 	resultJSON, err := json.Marshal(insertResult)
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(resultJSON)
@@ -298,7 +310,7 @@ func getUserFromAuthToken(r *http.Request) (model.User, bool, error) {
 
 		filter := bson.D{{"username", user.Username}}
 		err := users.FindOne(context.TODO(), filter).Decode(&user)
-		fmt.Println("user", user)
+
 		if err != nil {
 			log.Fatal(err)
 		}
