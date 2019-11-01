@@ -22,6 +22,25 @@
 ### Mongo
 
 - https://github.com/mongodb/mongo-go-driver
+- https://docs.mongodb.com/manual/reference/operator/aggregation/lookup/index.html#examples
+
+#### `$lookup`
+
+```bash
+// mongo
+> db.habits.insertOne({ "name": "Commit code today" });
+{
+	"acknowledged" : true,
+	"insertedId" : ObjectId("5dbc949c729c5cf9dc3925b2")
+}
+> db.logs.insertOne({ "entry": "this app tho", habits: [ObjectId("5dbc949c729c5cf9dc3925b2")] });
+{
+	"acknowledged" : true,
+	"insertedId" : ObjectId("5dbc94bb729c5cf9dc3925b3")
+}
+> db.logs.aggregate([{ $lookup: { from: "habits", localField: "habits", foreignField: "_id", as: "habits_info"  } }]);
+{ "_id" : ObjectId("5dbc94bb729c5cf9dc3925b3"), "entry" : "this app tho", "habits" : [ ObjectId("5dbc949c729c5cf9dc3925b2") ], "habits_info" : [ { "_id" : ObjectId("5dbc949c729c5cf9dc3925b2"), "name" : "Commit code today" } ] }
+```
 
 ### http
 
