@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"golog/api"
+	"goplay/api"
 	"log"
 	"net/http"
 	"os"

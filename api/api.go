@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"golog/model"
+	"goplay/model"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -300,6 +300,7 @@ func getUserFromAuthToken(r *http.Request) (model.User, bool, error) {
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 		return []byte("jonapi"), nil
 	})
+	fmt.Println("wut", err)
 	var user model.User
 	var ok bool
 	if claims, _ := token.Claims.(jwt.MapClaims); token.Valid {
