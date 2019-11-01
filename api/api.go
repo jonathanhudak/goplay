@@ -4,52 +4,20 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"goplay/database"
 	"goplay/model"
 	"io/ioutil"
 	"log"
 	"net/http"
-	"os"
 	"strings"
 
 	"github.com/dgrijalva/jwt-go"
 	"github.com/gorilla/mux"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
-	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
-	"go.mongodb.org/mongo-driver/mongo/readpref"
 	"golang.org/x/crypto/bcrypt"
 )
-
-var db *mongo.Database
-var logs *mongo.Collection
-var users *mongo.Collection
-
-func init() {
-	dbPath := os.Getenv("MONGO_PATH")
-
-	if len(dbPath) == 0 {
-		dbPath = "localhost"
-	}
-
-	mongoURL := os.Getenv("MONGO_URL")
-
-	if len(mongoURL) == 0 {
-		mongoURL = "mongodb://" + dbPath + ":27017"
-	}
-
-	client, _ := mongo.Connect(context.TODO(), options.Client().ApplyURI(mongoURL))
-	err := client.Ping(context.TODO(), readpref.Primary())
-	if err != nil {
-		log.Fatal("Couldn't connect to the database", err)
-	} else {
-		log.Println("Connected!")
-	}
-
-	db = client.Database("jonapi")
-	logs = db.Collection("logs")
-	users = db.Collection("users")
-}
 
 // CreateLogHandler creates a log owned by the requester
 func CreateLogHandler(w http.ResponseWriter, r *http.Request) {
@@ -63,7 +31,7 @@ func CreateLogHandler(w http.ResponseWriter, r *http.Request) {
 		log.Fatal("Invalid params", err)
 	}
 
-	insertResult, err := logs.InsertOne(context.TODO(), logEntry)
+	insertResult, err := database.Logs.InsertOne(context.TODO(), logEntry)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -83,7 +51,7 @@ func DeleteLogHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	deleteResult, err := logs.DeleteOne(context.TODO(), filter)
+	deleteResult, err := database.Logs.DeleteOne(context.TODO(), filter)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -98,7 +66,7 @@ func ensureLogOwner(w http.ResponseWriter, r *http.Request, filter bson.D) bool 
 
 	// Make sure the log is owned by the same user
 	owner, _, _ := getUserFromAuthToken(r)
-	findErr := logs.FindOne(context.TODO(), filter).Decode(&logEntry)
+	findErr := database.Logs.FindOne(context.TODO(), filter).Decode(&logEntry)
 	if findErr != nil {
 		log.Fatal("Log not found", findErr)
 	}
@@ -134,7 +102,7 @@ func UpdateLogHandler(w http.ResponseWriter, r *http.Request) {
 		{"$set", logEntry},
 	}
 
-	updateResult, err := logs.UpdateOne(context.TODO(), filter, update)
+	updateResult, err := database.Logs.UpdateOne(context.TODO(), filter, update)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -152,7 +120,7 @@ func GetLogHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Printf("GetLog %s\n", vars["_id"])
 	objID, _ := primitive.ObjectIDFromHex(vars["_id"])
 	filter := bson.D{{"_id", objID}, {"user_id", owner.OID}} // vet complains about this. Not sure composite literal uses unkeyed fields
-	err := logs.FindOne(context.TODO(), filter).Decode(&logEntry)
+	err := database.Logs.FindOne(context.TODO(), filter).Decode(&logEntry)
 	if err != nil {
 		log.Fatal(err)
 		notFound, _ := json.Marshal("Log entry not found")
@@ -169,7 +137,7 @@ func GetLogsHandler(w http.ResponseWriter, r *http.Request) {
 	findOptions := options.Find()
 	findOptions.SetLimit(10)
 
-	cur, err := logs.Find(context.TODO(), bson.D{{"user_id", owner.OID}}, findOptions)
+	cur, err := database.Logs.Find(context.TODO(), bson.D{{"user_id", owner.OID}}, findOptions)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -213,7 +181,7 @@ func RegisterHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var result model.User
-	err = users.FindOne(context.TODO(), bson.D{{"username", user.Username}}).Decode(&result)
+	err = database.Users.FindOne(context.TODO(), bson.D{{"username", user.Username}}).Decode(&result)
 
 	if err != nil {
 		if err.Error() == "mongo: no documents in result" {
@@ -226,7 +194,7 @@ func RegisterHandler(w http.ResponseWriter, r *http.Request) {
 			}
 			user.Password = string(hash)
 
-			_, err = users.InsertOne(context.TODO(), user)
+			_, err = database.Users.InsertOne(context.TODO(), user)
 			if err != nil {
 				res.Error = "Error While Creating User, Try Again"
 				json.NewEncoder(w).Encode(res)
@@ -259,7 +227,7 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 	var result model.User
 	var res model.ResponseResult
 
-	err = users.FindOne(context.TODO(), bson.D{{"username", user.Username}}).Decode(&result)
+	err = database.Users.FindOne(context.TODO(), bson.D{{"username", user.Username}}).Decode(&result)
 
 	if err != nil {
 		res.Error = "Invalid username"
@@ -310,7 +278,7 @@ func getUserFromAuthToken(r *http.Request) (model.User, bool, error) {
 		ok = true
 
 		filter := bson.D{{"username", user.Username}}
-		err := users.FindOne(context.TODO(), filter).Decode(&user)
+		err := database.Users.FindOne(context.TODO(), filter).Decode(&user)
 
 		if err != nil {
 			log.Fatal(err)

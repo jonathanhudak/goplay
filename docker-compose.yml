@@ -9,7 +9,7 @@ services:
     #   - "mongo"
     environment:
       - SERVER_PORT=5000
-      # - MONGO_PATH=mongo
+      - MONGO_PATH=mongo
   web:
     container_name: "web"
     image: "nginx:latest"
