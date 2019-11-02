@@ -23,6 +23,10 @@
 
 - https://github.com/mongodb/mongo-go-driver
 - https://docs.mongodb.com/manual/reference/operator/aggregation/lookup/index.html#examples
+- https://medium.com/@HasstrupEzekiel/creating-indexes-with-the-new-mongo-go-driver-26310dbc3091
+- https://docs.mongodb.com/manual/indexes/
+- https://stackoverflow.com/questions/52235070/how-to-run-an-aggregate-query-via-mongo-go-driver-that-has-javascript-in-it
+- \*\* https://stackoverflow.com/questions/56948324/how-to-write-bson-form-of-mongo-query-in-golang
 
 #### `$lookup`
 

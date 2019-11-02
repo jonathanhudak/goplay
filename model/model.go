@@ -18,9 +18,17 @@ type ResponseResult struct {
 	Result string `json:"result"`
 }
 
+type Habit struct {
+	ID     *primitive.ObjectID `json:"id" bson:"_id,omitempty"`
+	Name   string              `json:"name"`
+	UserID primitive.ObjectID  `json:"user_id" bson:"user_id,omitempty"`
+}
+
 // Log is the type for collection item
 type Log struct {
-	ID     *primitive.ObjectID `json:"id" bson:"_id,omitempty"`
-	Entry  string              `json:"entry"`
-	UserID primitive.ObjectID  `json:"user_id" bson:"user_id,omitempty"`
+	ID         *primitive.ObjectID  `json:"id" bson:"_id,omitempty"`
+	Entry      string               `json:"entry"`
+	UserID     primitive.ObjectID   `json:"user_id" bson:"user_id,omitempty"`
+	Habits     []primitive.ObjectID `json:"habits"`
+	HabitsInfo []Habit              `json:"habits_info" bson:"habits_info,omitempty"`
 }

@@ -3,7 +3,6 @@ package api
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"goplay/database"
 	"goplay/model"
 	"io/ioutil"
@@ -15,6 +14,7 @@ import (
 	"github.com/gorilla/mux"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -31,12 +31,9 @@ func CreateLogHandler(w http.ResponseWriter, r *http.Request) {
 		log.Fatal("Invalid params", err)
 	}
 
-	insertResult, err := database.Logs.InsertOne(context.TODO(), logEntry)
-	if err != nil {
-		log.Fatal(err)
-	}
+	createLogResult := database.CreateLog(logEntry)
 
-	resultJSON, err := json.Marshal(insertResult)
+	resultJSON, err := json.Marshal(createLogResult)
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(resultJSON)
 }
@@ -116,17 +113,9 @@ func GetLogHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	owner, _, _ := getUserFromAuthToken(r)
 	vars := mux.Vars(r)
-	var logEntry model.Log
-	fmt.Printf("GetLog %s\n", vars["_id"])
 	objID, _ := primitive.ObjectIDFromHex(vars["_id"])
-	filter := bson.D{{"_id", objID}, {"user_id", owner.OID}} // vet complains about this. Not sure composite literal uses unkeyed fields
-	err := database.Logs.FindOne(context.TODO(), filter).Decode(&logEntry)
-	if err != nil {
-		log.Fatal(err)
-		notFound, _ := json.Marshal("Log entry not found")
-		w.Write(notFound)
-	}
-	resultJSON, err := json.Marshal(logEntry)
+	logEntry := database.GetLog(objID, owner.OID)
+	resultJSON, _ := json.Marshal(logEntry)
 	w.Write(resultJSON)
 }
 
@@ -137,28 +126,38 @@ func GetLogsHandler(w http.ResponseWriter, r *http.Request) {
 	findOptions := options.Find()
 	findOptions.SetLimit(10)
 
-	cur, err := database.Logs.Find(context.TODO(), bson.D{{"user_id", owner.OID}}, findOptions)
+	lookup := bson.D{
+		{"from", "habits"},
+		{"localField", "habits"},
+		{"foreignField", "_id"},
+		{"as", "habits_info"},
+	}
+
+	pipeline := mongo.Pipeline{
+		{{"$match", bson.D{{"user_id", owner.OID}}}},
+		{{"$lookup", lookup}},
+	}
+
+	cursor, err := database.Logs.Aggregate(context.Background(), pipeline)
+	defer cursor.Close(context.Background())
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	// Iterate through the cursor
-	for cur.Next(context.TODO()) {
-		var elem model.Log
-		err := cur.Decode(&elem)
+	for cursor.Next(context.Background()) {
+		var logEntry model.Log
+		err := cursor.Decode(&logEntry)
 		if err != nil {
 			log.Fatal(err)
 		}
 
-		results = append(results, &elem)
+		results = append(results, &logEntry)
 	}
 
-	if err := cur.Err(); err != nil {
+	if err := cursor.Err(); err != nil {
 		log.Fatal(err)
 	}
-
-	// Close the cursor once finished
-	cur.Close(context.TODO())
 
 	logsJSON, err := json.Marshal(results)
 
@@ -268,7 +267,6 @@ func getUserFromAuthToken(r *http.Request) (model.User, bool, error) {
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 		return []byte("jonapi"), nil
 	})
-	fmt.Println("wut", err)
 	var user model.User
 	var ok bool
 	if claims, _ := token.Claims.(jwt.MapClaims); token.Valid {
