@@ -22,18 +22,26 @@ func main() {
 	authenticatedRouter := mux.NewRouter().PathPrefix("/api").Subrouter().StrictSlash(true)
 
 	authenticatedRouter.HandleFunc("/profile", api.ProfileHandler).Methods(http.MethodGet, http.MethodOptions)
-	authenticatedRouter.HandleFunc("/logs/create", api.CreateLogHandler).Methods(http.MethodPost, http.MethodOptions, http.MethodGet, http.MethodOptions)
-	authenticatedRouter.HandleFunc("/logs", api.GetLogsHandler).Methods(http.MethodPost, http.MethodOptions, http.MethodGet, http.MethodOptions)
+
+	// Logs
+	authenticatedRouter.HandleFunc("/logs", api.CreateLogHandler).Methods(http.MethodPost, http.MethodOptions)
+	authenticatedRouter.HandleFunc("/logs", api.GetLogsHandler).Methods(http.MethodGet, http.MethodOptions)
 	authenticatedRouter.HandleFunc("/logs/{_id}", api.GetLogHandler).Methods(http.MethodGet, http.MethodOptions)
 	authenticatedRouter.HandleFunc("/logs/{_id}", api.UpdateLogHandler).Methods(http.MethodPut, http.MethodOptions)
 	authenticatedRouter.HandleFunc("/logs/{_id}", api.DeleteLogHandler).Methods(http.MethodDelete, http.MethodOptions)
+
+	// Habits
+	authenticatedRouter.HandleFunc("/habits", api.GetHabitsHandler).Methods(http.MethodGet, http.MethodOptions)
+	authenticatedRouter.HandleFunc("/habits", api.CreateHabitHandler).Methods(http.MethodPost, http.MethodOptions)
+	authenticatedRouter.HandleFunc("/habits/{_id}", api.UpdateHabitHandler).Methods(http.MethodPut, http.MethodOptions)
+	authenticatedRouter.HandleFunc("/habits/{_id}", api.DeleteHabitHandler).Methods(http.MethodDelete, http.MethodOptions)
 
 	r.HandleFunc("/register", api.RegisterHandler).Methods(http.MethodPost, http.MethodOptions)
 	r.HandleFunc("/login", api.LoginHandler).Methods(http.MethodPost, http.MethodOptions)
 
 	// Middleware: https://github.com/urfave/negroni
 	jwtMiddleware := jwtmiddleware.New(jwtmiddleware.Options{
-		Debug: true,
+		Debug: false,
 		ValidationKeyGetter: func(token *jwt.Token) (interface{}, error) {
 			return []byte("jonapi"), nil
 		},

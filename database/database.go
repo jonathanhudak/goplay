@@ -57,19 +57,19 @@ func CreateLog(logEntry model.Log) *mongo.InsertOneResult {
 	return result
 }
 
+var logsLookup = bson.D{
+	{"from", "habits"},
+	{"localField", "habits"},
+	{"foreignField", "_id"},
+	{"as", "habits_info"},
+}
+
 func GetLog(id primitive.ObjectID, ownerId primitive.ObjectID) model.Log {
 	var logEntry model.Log
-	fmt.Println("GetLog")
-	lookup := bson.D{
-		{"from", "habits"},
-		{"localField", "habits"},
-		{"foreignField", "_id"},
-		{"as", "habits_info"},
-	}
 
 	pipeline := mongo.Pipeline{
 		{{"$match", bson.D{{"_id", id}, {"user_id", ownerId}}}},
-		{{"$lookup", lookup}},
+		{{"$lookup", logsLookup}},
 	}
 	cursor, err := Logs.Aggregate(context.Background(), pipeline)
 	if err != nil {
@@ -86,4 +86,76 @@ func GetLog(id primitive.ObjectID, ownerId primitive.ObjectID) model.Log {
 	}
 
 	return logEntry
+}
+
+func GetLogs(ownerId primitive.ObjectID) []*model.Log {
+	var results []*model.Log
+
+	pipeline := mongo.Pipeline{
+		{{"$match", bson.D{{"user_id", ownerId}}}},
+		{{"$lookup", logsLookup}},
+	}
+
+	cursor, err := Logs.Aggregate(context.Background(), pipeline)
+	defer cursor.Close(context.Background())
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Iterate through the cursor
+	for cursor.Next(context.Background()) {
+		var logEntry model.Log
+		err := cursor.Decode(&logEntry)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		results = append(results, &logEntry)
+	}
+
+	if err := cursor.Err(); err != nil {
+		log.Fatal(err)
+	}
+
+	return results
+}
+
+func CreateHabit(habit model.Habit) *mongo.InsertOneResult {
+	result, err := Habits.InsertOne(context.TODO(), habit)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return result
+}
+
+func GetHabits(ownerId primitive.ObjectID) []*model.Habit {
+	var results []*model.Habit
+
+	pipeline := mongo.Pipeline{
+		{{"$match", bson.D{{"user_id", ownerId}}}},
+		// {{"$lookup", logsLookup}},
+	}
+
+	cursor, err := Habits.Aggregate(context.Background(), pipeline)
+	defer cursor.Close(context.Background())
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Iterate through the cursor
+	for cursor.Next(context.Background()) {
+		var habit model.Habit
+		err := cursor.Decode(&habit)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		results = append(results, &habit)
+	}
+
+	if err := cursor.Err(); err != nil {
+		log.Fatal(err)
+	}
+
+	return results
 }

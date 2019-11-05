@@ -14,8 +14,6 @@ import (
 	"github.com/gorilla/mux"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -38,6 +36,25 @@ func CreateLogHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write(resultJSON)
 }
 
+// CreateHabitHandler creates a habit owned by the requester
+func CreateHabitHandler(w http.ResponseWriter, r *http.Request) {
+	var habit model.Habit
+	owner, _, _ := getUserFromAuthToken(r)
+
+	habit.UserID = owner.OID
+
+	err := json.NewDecoder(r.Body).Decode(&habit)
+	if err != nil {
+		log.Fatal("Invalid params", err)
+	}
+
+	result := database.CreateHabit(habit)
+
+	json, err := json.Marshal(result)
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(json)
+}
+
 // DeleteLogHandler removes log by id if the requester is the owner
 func DeleteLogHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
@@ -49,6 +66,25 @@ func DeleteLogHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	deleteResult, err := database.Logs.DeleteOne(context.TODO(), filter)
+	if err != nil {
+		log.Fatal(err)
+	}
+	resultJSON, _ := json.Marshal(deleteResult)
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(resultJSON)
+}
+
+func DeleteHabitHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	objID, _ := primitive.ObjectIDFromHex(vars["_id"])
+	filter := bson.D{{"_id", objID}}
+
+	if ensureHabitOwner(w, r, filter) == false {
+		return
+	}
+
+	deleteResult, err := database.Habits.DeleteOne(context.TODO(), filter)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -77,15 +113,33 @@ func ensureLogOwner(w http.ResponseWriter, r *http.Request, filter bson.D) bool 
 	return true
 }
 
+func ensureHabitOwner(w http.ResponseWriter, r *http.Request, filter bson.D) bool {
+	var habit model.Habit
+
+	// Make sure the habit is owned by the same user
+	owner, _, _ := getUserFromAuthToken(r)
+	findErr := database.Habits.FindOne(context.TODO(), filter).Decode(&habit)
+	if findErr != nil {
+		log.Fatal("Habit not found", findErr)
+	}
+
+	if habit.UserID != owner.OID {
+		w.WriteHeader(http.StatusForbidden)
+		notFound, _ := json.Marshal("Computer says no")
+		w.Write(notFound)
+		return false
+	}
+	return true
+}
+
 // UpdateLogHandler updates a log if the requester is the owner
 func UpdateLogHandler(w http.ResponseWriter, r *http.Request) {
-
 	var logEntry model.Log
 	vars := mux.Vars(r)
 	objID, _ := primitive.ObjectIDFromHex(vars["_id"])
 	filter := bson.D{{"_id", objID}}
 
-	if ensureLogOwner(w, r, filter) == false {
+	if ensureHabitOwner(w, r, filter) == false {
 		return
 	}
 
@@ -108,6 +162,36 @@ func UpdateLogHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write(resultJSON)
 }
 
+// UpdateHabitHandler updates a habit if the requester is the owner
+func UpdateHabitHandler(w http.ResponseWriter, r *http.Request) {
+	var habit model.Habit
+	vars := mux.Vars(r)
+	objID, _ := primitive.ObjectIDFromHex(vars["_id"])
+	filter := bson.D{{"_id", objID}}
+
+	if ensureHabitOwner(w, r, filter) == false {
+		return
+	}
+
+	err := json.NewDecoder(r.Body).Decode(&habit)
+	if err != nil {
+		log.Fatal("Invalid params", err)
+		return
+	}
+
+	update := bson.D{
+		{"$set", habit},
+	}
+
+	updateResult, err := database.Habits.UpdateOne(context.TODO(), filter, update)
+	if err != nil {
+		log.Fatal(err)
+	}
+	resultJSON, err := json.Marshal(updateResult)
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(resultJSON)
+}
+
 // GetLogHandler retrieves a log by using the route param
 func GetLogHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
@@ -122,47 +206,28 @@ func GetLogHandler(w http.ResponseWriter, r *http.Request) {
 // GetLogsHandler retrieves logs from the database as json
 func GetLogsHandler(w http.ResponseWriter, r *http.Request) {
 	owner, _, _ := getUserFromAuthToken(r)
-	var results []*model.Log
-	findOptions := options.Find()
-	findOptions.SetLimit(10)
 
-	lookup := bson.D{
-		{"from", "habits"},
-		{"localField", "habits"},
-		{"foreignField", "_id"},
-		{"as", "habits_info"},
-	}
+	logsJSON, err := json.Marshal(database.GetLogs(owner.OID))
 
-	pipeline := mongo.Pipeline{
-		{{"$match", bson.D{{"user_id", owner.OID}}}},
-		{{"$lookup", lookup}},
-	}
-
-	cursor, err := database.Logs.Aggregate(context.Background(), pipeline)
-	defer cursor.Close(context.Background())
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	// Iterate through the cursor
-	for cursor.Next(context.Background()) {
-		var logEntry model.Log
-		err := cursor.Decode(&logEntry)
-		if err != nil {
-			log.Fatal(err)
-		}
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(logsJSON)
+}
 
-		results = append(results, &logEntry)
-	}
+// GetHabitsHandler returns the owners habits
+func GetHabitsHandler(w http.ResponseWriter, r *http.Request) {
+	owner, _, _ := getUserFromAuthToken(r)
+	json, err := json.Marshal(database.GetHabits(owner.OID))
 
-	if err := cursor.Err(); err != nil {
+	if err != nil {
 		log.Fatal(err)
 	}
 
-	logsJSON, err := json.Marshal(results)
-
 	w.Header().Set("Content-Type", "application/json")
-	w.Write(logsJSON)
+	w.Write(json)
 }
 
 // Auth
