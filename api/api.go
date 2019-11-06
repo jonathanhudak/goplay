@@ -55,6 +55,59 @@ func CreateHabitHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write(json)
 }
 
+// CreateIdentityHandler creates an identity owned by the requester
+func CreateIdentityHandler(w http.ResponseWriter, r *http.Request) {
+	var identity model.Identity
+	owner, _, _ := getUserFromAuthToken(r)
+
+	identity.UserID = owner.OID
+
+	err := json.NewDecoder(r.Body).Decode(&identity)
+	if err != nil {
+		log.Fatal("Invalid params", err)
+	}
+
+	result := database.CreateIdentity(identity)
+
+	json, err := json.Marshal(result)
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(json)
+}
+
+// GetIdentitiesHandler retrieves identities from the database as json
+func GetIdentitiesHandler(w http.ResponseWriter, r *http.Request) {
+	owner, _, _ := getUserFromAuthToken(r)
+
+	identitiesJSON, err := json.Marshal(database.GetIdentities(owner.OID))
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(identitiesJSON)
+}
+
+// DeleteIdentityHandler removes an identity by id if the requester is the owner
+func DeleteIdentityHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	objID, _ := primitive.ObjectIDFromHex(vars["_id"])
+	filter := bson.D{{"_id", objID}}
+
+	if ensureIdentityOwner(w, r, filter) == false {
+		return
+	}
+
+	deleteResult, err := database.Identities.DeleteOne(context.TODO(), filter)
+	if err != nil {
+		log.Fatal(err)
+	}
+	resultJSON, _ := json.Marshal(deleteResult)
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(resultJSON)
+}
+
 // DeleteLogHandler removes log by id if the requester is the owner
 func DeleteLogHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
@@ -132,6 +185,25 @@ func ensureHabitOwner(w http.ResponseWriter, r *http.Request, filter bson.D) boo
 	return true
 }
 
+func ensureIdentityOwner(w http.ResponseWriter, r *http.Request, filter bson.D) bool {
+	var identity model.Identity
+
+	// Make sure the identity is owned by the same user
+	owner, _, _ := getUserFromAuthToken(r)
+	findErr := database.Identities.FindOne(context.TODO(), filter).Decode(&identity)
+	if findErr != nil {
+		log.Fatal("Identity not found", findErr)
+	}
+
+	if identity.UserID != owner.OID {
+		w.WriteHeader(http.StatusForbidden)
+		notFound, _ := json.Marshal("Computer says no")
+		w.Write(notFound)
+		return false
+	}
+	return true
+}
+
 // UpdateLogHandler updates a log if the requester is the owner
 func UpdateLogHandler(w http.ResponseWriter, r *http.Request) {
 	var logEntry model.Log
@@ -184,6 +256,36 @@ func UpdateHabitHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	updateResult, err := database.Habits.UpdateOne(context.TODO(), filter, update)
+	if err != nil {
+		log.Fatal(err)
+	}
+	resultJSON, err := json.Marshal(updateResult)
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(resultJSON)
+}
+
+// UpdateIdentityHandler updates an identity if the requester is the owner
+func UpdateIdentityHandler(w http.ResponseWriter, r *http.Request) {
+	var identity model.Identity
+	vars := mux.Vars(r)
+	objID, _ := primitive.ObjectIDFromHex(vars["_id"])
+	filter := bson.D{{"_id", objID}}
+
+	if ensureIdentityOwner(w, r, filter) == false {
+		return
+	}
+
+	err := json.NewDecoder(r.Body).Decode(&identity)
+	if err != nil {
+		log.Fatal("Invalid params", err)
+		return
+	}
+
+	update := bson.D{
+		{"$set", identity},
+	}
+
+	updateResult, err := database.Identities.UpdateOne(context.TODO(), filter, update)
 	if err != nil {
 		log.Fatal(err)
 	}

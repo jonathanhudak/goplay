@@ -15,10 +15,11 @@ import (
 )
 
 var (
-	DB     *mongo.Database
-	Logs   *mongo.Collection
-	Users  *mongo.Collection
-	Habits *mongo.Collection
+	DB         *mongo.Database
+	Logs       *mongo.Collection
+	Users      *mongo.Collection
+	Habits     *mongo.Collection
+	Identities *mongo.Collection
 )
 
 func init() {
@@ -46,6 +47,7 @@ func init() {
 	Logs = DB.Collection("logs")
 	Users = DB.Collection("users")
 	Habits = DB.Collection("habits")
+	Identities = DB.Collection("identities")
 }
 
 // Creates a new Log
@@ -151,6 +153,47 @@ func GetHabits(ownerId primitive.ObjectID) []*model.Habit {
 		}
 
 		results = append(results, &habit)
+	}
+
+	if err := cursor.Err(); err != nil {
+		log.Fatal(err)
+	}
+
+	return results
+}
+
+// CreateIdentity
+func CreateIdentity(identity model.Identity) *mongo.InsertOneResult {
+	result, err := Identities.InsertOne(context.TODO(), identity)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return result
+}
+
+func GetIdentities(ownerId primitive.ObjectID) []*model.Identity {
+	var results []*model.Identity
+
+	pipeline := mongo.Pipeline{
+		{{"$match", bson.D{{"user_id", ownerId}}}},
+		// {{"$lookup", logsLookup}},
+	}
+
+	cursor, err := Identities.Aggregate(context.Background(), pipeline)
+	defer cursor.Close(context.Background())
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Iterate through the cursor
+	for cursor.Next(context.Background()) {
+		var identity model.Identity
+		err := cursor.Decode(&identity)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		results = append(results, &identity)
 	}
 
 	if err := cursor.Err(); err != nil {

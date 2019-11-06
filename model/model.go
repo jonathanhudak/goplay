@@ -32,3 +32,11 @@ type Log struct {
 	Habits     []primitive.ObjectID `json:"habits"`
 	HabitsInfo []Habit              `json:"habits_info" bson:"habits_info,omitempty"`
 }
+
+// Identity is a parent of both Habit and Log
+type Identity struct {
+	ID     *primitive.ObjectID  `json:"id" bson:"_id,omitempty"`
+	Name   string               `json:"name"`
+	Habits []primitive.ObjectID `json:"habits"`
+	UserID primitive.ObjectID   `json:"user_id" bson:"user_id,omitempty"`
+}

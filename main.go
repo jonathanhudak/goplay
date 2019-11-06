@@ -36,6 +36,12 @@ func main() {
 	authenticatedRouter.HandleFunc("/habits/{_id}", api.UpdateHabitHandler).Methods(http.MethodPut, http.MethodOptions)
 	authenticatedRouter.HandleFunc("/habits/{_id}", api.DeleteHabitHandler).Methods(http.MethodDelete, http.MethodOptions)
 
+	// Identities
+	authenticatedRouter.HandleFunc("/identities", api.GetIdentitiesHandler).Methods(http.MethodGet, http.MethodOptions)
+	authenticatedRouter.HandleFunc("/identities", api.CreateIdentityHandler).Methods(http.MethodPost, http.MethodOptions)
+	authenticatedRouter.HandleFunc("/identities/{_id}", api.UpdateIdentityHandler).Methods(http.MethodPut, http.MethodOptions)
+	authenticatedRouter.HandleFunc("/identities/{_id}", api.DeleteIdentityHandler).Methods(http.MethodDelete, http.MethodOptions)
+
 	r.HandleFunc("/register", api.RegisterHandler).Methods(http.MethodPost, http.MethodOptions)
 	r.HandleFunc("/login", api.LoginHandler).Methods(http.MethodPost, http.MethodOptions)
 
