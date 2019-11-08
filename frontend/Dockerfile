@@ -1,3 +1,3 @@
 FROM nginx
 
-COPY . /usr/share/nginx/html
+COPY ./build/release/ /usr/share/nginx/html
