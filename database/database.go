@@ -2,7 +2,6 @@ package database
 
 import (
 	"context"
-	"fmt"
 	"goplay/model"
 	"log"
 	"os"
@@ -62,7 +61,7 @@ func CreateLog(logEntry model.Log) *mongo.InsertOneResult {
 var logsLookup = bson.D{
 	{"from", "habits"},
 	{"localField", "habits"},
-	{"foreignField", "_id"},
+	{"foreignField", "name"},
 	{"as", "habits_info"},
 }
 
@@ -84,7 +83,6 @@ func GetLog(id primitive.ObjectID, ownerId primitive.ObjectID) model.Log {
 		if err != nil {
 			log.Fatal(err)
 		}
-		fmt.Println(logEntry)
 	}
 
 	return logEntry
@@ -95,6 +93,7 @@ func GetLogs(ownerId primitive.ObjectID) []*model.Log {
 
 	pipeline := mongo.Pipeline{
 		{{"$match", bson.D{{"user_id", ownerId}}}},
+		{{"$sort", bson.D{{"order_number", -1}}}},
 		{{"$lookup", logsLookup}},
 	}
 

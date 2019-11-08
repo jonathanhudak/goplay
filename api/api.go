@@ -14,6 +14,7 @@ import (
 	"github.com/gorilla/mux"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo/options"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -255,11 +256,27 @@ func UpdateHabitHandler(w http.ResponseWriter, r *http.Request) {
 		{"$set", habit},
 	}
 
-	updateResult, err := database.Habits.UpdateOne(context.TODO(), filter, update)
-	if err != nil {
-		log.Fatal(err)
+	after := options.After
+	upsert := true
+	opt := options.FindOneAndUpdateOptions{
+		ReturnDocument: &after,
+		Upsert:         &upsert,
 	}
-	resultJSON, err := json.Marshal(updateResult)
+
+	result := database.Habits.FindOneAndUpdate(context.TODO(), filter, update, &opt)
+
+	if result.Err() != nil {
+		log.Fatal("Eror updating habit", result.Err())
+	}
+
+	decodeErr := result.Decode(&habit)
+
+	if decodeErr != nil {
+		log.Fatal("Error decoding habit", decodeErr)
+	}
+
+	resultJSON, err := json.Marshal(habit)
+
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(resultJSON)
 }

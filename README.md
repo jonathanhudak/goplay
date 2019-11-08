@@ -27,6 +27,7 @@
 - https://docs.mongodb.com/manual/indexes/
 - https://stackoverflow.com/questions/52235070/how-to-run-an-aggregate-query-via-mongo-go-driver-that-has-javascript-in-it
 - \*\* https://stackoverflow.com/questions/56948324/how-to-write-bson-form-of-mongo-query-in-golang
+- FindOneAndUpdate - https://christiangiacomi.com/posts/mongo-go-driver-update/
 
 #### `$lookup`
 
@@ -45,6 +46,11 @@
 > db.logs.aggregate([{ $lookup: { from: "habits", localField: "habits", foreignField: "_id", as: "habits_info"  } }]);
 { "_id" : ObjectId("5dbc94bb729c5cf9dc3925b3"), "entry" : "this app tho", "habits" : [ ObjectId("5dbc949c729c5cf9dc3925b2") ], "habits_info" : [ { "_id" : ObjectId("5dbc949c729c5cf9dc3925b2"), "name" : "Commit code today" } ] }
 ```
+
+#### Pagination
+
+- https://docs.mongodb.com/manual/reference/method/cursor.skip/#pagination-example
+- https://stackoverflow.com/questions/52677785/how-to-use-mongodb-mongo-go-driver-to-perform-efficient-paging
 
 ### http
 
